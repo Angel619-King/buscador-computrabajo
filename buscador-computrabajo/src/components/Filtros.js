@@ -10,14 +10,14 @@ const Filtros = ({ filtro, setFiltro }) => {
         Todos
       </button>
       <button 
-        className={filtro === 'mayores' ? 'active' : ''}
-        onClick={() => setFiltro('mayores')}
+        className={filtro === 'mejores' ? 'active' : ''}
+        onClick={() => setFiltro('mejores')}
       >
         Top 10 Mayores
       </button>
       <button 
-        className={filtro === 'menores' ? 'active' : ''}
-        onClick={() => setFiltro('menores')}
+        className={filtro === 'peores' ? 'active' : ''}
+        onClick={() => setFiltro('peores')}
       >
         Top 10 Menores
       </button>
