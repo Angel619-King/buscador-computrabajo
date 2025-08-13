@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import L from 'leaflet';
 import jsPDF from 'jspdf';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet/dist/leaflet.css';
 import './App.css';
@@ -104,11 +103,17 @@ function App() {
     doc.save(`${oferta.titulo.replace(/ /g, '_')}.pdf`);
   };
 
-  const handleSearchClick = () => {
-    fetchOfertas();
-  };
+    const handleSearchClick = () => {
+        fetchOfertas();
+    };
+    
+    const handleVerMapaTop10 = () => {
+        setFiltro('mejores');
+        setMostrarMapaTop10(true);
+        setOfertaSeleccionada(null);
+    };
 
-  const resultadosRender = ofertasFiltradas();
+    const resultadosRender = ofertasFiltradas();
 
   return (
     <div className="app-container">

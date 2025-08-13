@@ -1,8 +1,18 @@
 import React from 'react';
+<<<<<<< HEAD
 import './Buscador.css';
+=======
+import './Buscador.css'; 
+
+const Buscador = ({ busqueda, setBusqueda, onSearch }) => {
+>>>>>>> 533a79298310c1ba32349021608c936a82b17d60
 
 const Buscador = ({ busqueda, setBusqueda, onSearch, resultados }) => {
   const handleKeyDown = (event) => {
+<<<<<<< HEAD
+=======
+    
+>>>>>>> 533a79298310c1ba32349021608c936a82b17d60
     if (event.key === 'Enter') {
       onSearch();
     }
