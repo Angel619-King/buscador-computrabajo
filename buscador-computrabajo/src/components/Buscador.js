@@ -1,12 +1,10 @@
-// src/components/Buscador.js
-
 import React from 'react';
-import './Buscador.css'; // Asegúrate de que este archivo exista para los estilos
+import './Buscador.css'; 
 
 const Buscador = ({ busqueda, setBusqueda, onSearch }) => {
 
   const handleKeyDown = (event) => {
-    // Permite que la búsqueda se dispare también con la tecla "Enter"
+    
     if (event.key === 'Enter') {
       onSearch();
     }
