@@ -1,32 +1,30 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const { Parser } = require('json2csv');
-const readline = require('readline');
 
 const BASE_URL = 'https://mx.computrabajo.com';
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
+/**
+ 
+ * @param {string} puesto
+ * @returns {Promise<Array>}
+ */
+async function scrapeJobs(puesto) {
+    const busqueda = puesto.trim().toLowerCase().replace(/\s+/g, '-');
+    const nombreArchivo = `ofertas_${busqueda.replace(/-/g, '_')}_${new Date().toISOString().split('T')[0]}`;
+    const CARPETA_SALIDA = `./resultados_${busqueda}`;
 
-async function iniciarBusqueda() {
-    rl.question('¿Qué puesto estás buscando? (ej: cajero): ', async (puesto) => {
-        const busqueda = puesto.trim().toLowerCase().replace(/\s+/g, '-');
-        const nombreArchivo = `ofertas_${busqueda.replace(/-/g, '_')}_${new Date().toISOString().split('T')[0]}`;
-        const CARPETA_SALIDA = `./resultados_${busqueda}`;
+    if (!fs.existsSync(CARPETA_SALIDA)) {
+        fs.mkdirSync(CARPETA_SALIDA);
+    }
 
-        if (!fs.existsSync(CARPETA_SALIDA)) {
-            fs.mkdirSync(CARPETA_SALIDA);
-        }
+    const urlBusqueda = `${BASE_URL}/trabajo-de-${busqueda}`;
+    console.log(`\nIniciando búsqueda en: ${urlBusqueda}`);
 
-        const urlBusqueda = `${BASE_URL}/trabajo-de-${busqueda}`;
-        console.log(`\nIniciando búsqueda en: ${urlBusqueda}`);
-
-        await extraerOfertasCompletas(urlBusqueda, CARPETA_SALIDA, nombreArchivo);
-        rl.close();
-    });
+    const resultados = await extraerOfertasCompletas(urlBusqueda, CARPETA_SALIDA, nombreArchivo);
+    return resultados; 
 }
+
 
 async function extraerDetalleOferta(browser, idOferta, urlBase, paginaActual) {
     const pagina = await browser.newPage();
@@ -40,40 +38,33 @@ async function extraerDetalleOferta(browser, idOferta, urlBase, paginaActual) {
         
         await pagina.waitForSelector('article[data-id]', { timeout: 15000 });
 
-        const datos = await pagina.evaluate((idOferta) => {
+        const datos = await pagina.evaluate(() => {
             const limpiarTexto = (texto) => texto ? texto.replace(/\s+/g, ' ').replace(/\n/g, ' ').trim() : null;
 
-            // Título principal
             const titulo = limpiarTexto(document.querySelector('h1.fs24')?.textContent) || 
-                          limpiarTexto(document.querySelector('h2 a')?.textContent);
+                             limpiarTexto(document.querySelector('h2 a')?.textContent);
 
-            // Información de la empresa
             const empresaElement = document.querySelector('a.dIB.mr10[target="_blank"]');
             let empresa = empresaElement ? limpiarTexto(empresaElement.textContent) : null;
             
-            // Limpiar calificación de la empresa si está presente
             if (empresa && empresa.match(/^\d\.\d/)) {
                 empresa = empresa.replace(/\n/g, ' ').trim();
             }
 
-            // Ubicación
             const ubicacionElement = document.querySelector('p.fs16.mb5') || 
-                                   document.querySelector('div.container > p.fs16');
+                                     document.querySelector('div.container > p.fs16');
             let ubicacion = ubicacionElement ? limpiarTexto(ubicacionElement.textContent) : null;
             if (ubicacion) {
                 ubicacion = ubicacion.split('-').pop().trim();
             }
 
-            // Salario
             const salarioElement = document.querySelector('p.dFlex.mb10 span.icon.i_money')?.parentElement;
             const salario = salarioElement ? limpiarTexto(salarioElement.textContent) : 'A convenir';
 
-            // Fecha de publicación
             const fechaElement = document.querySelector('p.fc_aux.fs13.mtB') || 
-                               document.querySelector('p.fc_aux.fs13');
+                                 document.querySelector('p.fc_aux.fs13');
             const publicado = fechaElement ? limpiarTexto(fechaElement.textContent) : null;
 
-            // Tipo de contrato
             let contrato = null;
             document.querySelectorAll('p.dFlex.mb10').forEach(el => {
                 const icono = el.querySelector('span.icon');
@@ -82,12 +73,10 @@ async function extraerDetalleOferta(browser, idOferta, urlBase, paginaActual) {
                 }
             });
 
-            // Descripción completa
             const descripcionElement = document.querySelector('div.fs16.t_word_wrap') || 
-                                     document.querySelector('div.bWord');
+                                       document.querySelector('div.bWord');
             let descripcion = descripcionElement ? limpiarTexto(descripcionElement.textContent) : null;
 
-            // Requisitos - Extraer de la descripción si no hay lista
             let requisitos = [];
             const requisitosElement = document.querySelector('ul.fs16.disc.mbB');
             
@@ -96,7 +85,6 @@ async function extraerDetalleOferta(browser, idOferta, urlBase, paginaActual) {
                     .map(li => limpiarTexto(li.textContent))
                     .filter(texto => texto && texto.length > 0);
             } else if (descripcion) {
-                // Extraer requisitos del texto de descripción
                 const regexRequisitos = /requisitos?:([\s\S]*?)(?=\n\n|$|beneficios|ofrecemos)/i;
                 const match = descripcion.match(regexRequisitos);
                 if (match) {
@@ -117,7 +105,7 @@ async function extraerDetalleOferta(browser, idOferta, urlBase, paginaActual) {
                 descripcion,
                 salario
             };
-        }, idOferta);
+        });
 
         await pagina.close();
         return { ...datos, pagina: paginaActual };
@@ -156,7 +144,6 @@ async function extraerOfertasCompletas(urlBusqueda, carpetaSalida, nombreArchivo
             
             await pagina.waitForSelector('article[data-id]', { timeout: 20000 });
 
-            // Extraer IDs de las ofertas
             const idsOfertas = await pagina.evaluate(() => {
                 return Array.from(document.querySelectorAll('article[data-id]')).map(el => el.getAttribute('data-id'));
             });
@@ -169,7 +156,6 @@ async function extraerOfertasCompletas(urlBusqueda, carpetaSalida, nombreArchivo
 
             console.log(`Encontradas ${idsOfertas.length} ofertas en esta página.`);
 
-            // Procesar cada oferta
             for (let idOferta of idsOfertas) {
                 try {
                     const detalle = await extraerDetalleOferta(navegador, idOferta, urlBusqueda, paginaActual);
@@ -180,10 +166,9 @@ async function extraerOfertasCompletas(urlBusqueda, carpetaSalida, nombreArchivo
                 } catch (err) {
                     console.warn(`Error al procesar oferta ${idOferta}: ${err.message}`);
                 }
-                await new Promise(res => setTimeout(res, 1000)); // Espera entre ofertas
+                await new Promise(res => setTimeout(res, 1000));
             }
 
-            // Verificar si hay más páginas
             const puedeAvanzar = await pagina.evaluate(() => {
                 const botonSiguiente = document.querySelector('span.b_primary.w48.buildLink.cp[title="Siguiente"]');
                 return botonSiguiente && !botonSiguiente.classList.contains('disabled');
@@ -194,19 +179,17 @@ async function extraerOfertasCompletas(urlBusqueda, carpetaSalida, nombreArchivo
                 intentosFallidos = 0;
                 console.log(`Avanzando a la página ${paginaActual}...`);
                 
-                // Navegar directamente a la siguiente página en lugar de hacer clic
                 const nextPageUrl = `${urlBusqueda}?p=${paginaActual}`;
                 await pagina.goto(nextPageUrl, {
                     waitUntil: 'networkidle2',
                     timeout: 60000
                 });
                 
-                await new Promise(res => setTimeout(res, 3000)); // Espera después de cambiar de página
+                await new Promise(res => setTimeout(res, 3000));
             } else {
                 hayMasPaginas = false;
                 console.log('No hay más páginas disponibles.');
             }
-
         } catch (error) {
             console.error(`Error al procesar la página ${paginaActual}:`, error.message);
             intentosFallidos++;
@@ -223,23 +206,15 @@ async function extraerOfertasCompletas(urlBusqueda, carpetaSalida, nombreArchivo
     console.log(`\nTotal de ofertas encontradas: ${resultados.length}`);
 
     if (resultados.length > 0) {
-        // Guardar JSON
+        
         const jsonPath = `${carpetaSalida}/${nombreArchivo}.json`;
         fs.writeFileSync(jsonPath, JSON.stringify(resultados, null, 2));
         console.log(`✅ Datos JSON guardados en: ${jsonPath}`);
 
-        // Guardar CSV
+        
         const camposCSV = [
-            'titulo',
-            'empresa',
-            'ubicacion',
-            'publicado',
-            'enlace',
-            'pagina',
-            'contrato',
-            'requisitos',
-            'descripcion',
-            'salario'
+            'titulo', 'empresa', 'ubicacion', 'publicado', 'enlace', 'pagina',
+            'contrato', 'requisitos', 'descripcion', 'salario'
         ];
         
         const parser = new Parser({ fields: camposCSV });
@@ -247,14 +222,15 @@ async function extraerOfertasCompletas(urlBusqueda, carpetaSalida, nombreArchivo
         const csvPath = `${carpetaSalida}/${nombreArchivo}.csv`;
         fs.writeFileSync(csvPath, csv);
         console.log(`✅ Datos CSV guardados en: ${csvPath}`);
-
     } else {
         console.log('No se encontraron ofertas para guardar.');
     }
 
     await navegador.close();
     console.log('Navegador cerrado.');
+
+    return resultados; 
 }
 
-console.log('🔍 Búsqueda de empleos en Computrabajo\n');
-iniciarBusqueda();
+
+module.exports = { scrapeJobs };

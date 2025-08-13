@@ -10,9 +10,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cors": "^2.8.5",
     "exceljs": "^4.4.0",
+    "express": "^5.1.0",
     "fs": "^0.0.1-security",
     "json2csv": "^6.0.0-alpha.2",
+    "node-geocoder": "^4.4.1",
     "pdfkit": "^0.17.1",
     "puppeteer": "^24.16.0",
     "puppeteer-extra": "^3.3.6",
