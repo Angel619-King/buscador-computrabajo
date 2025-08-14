@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import jsPDF from 'jspdf';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import './App.css'; // <- estilos propios
+import './App.css';
 
 import Buscador from './components/Buscador';
 import { geocodeLocationManual } from './components/manualGeode';
+import BotonesExportar from './components/BotonesExportar';
 
 import 'leaflet/dist/images/marker-icon.png';
 import 'leaflet/dist/images/marker-shadow.png';
@@ -19,22 +19,13 @@ L.Icon.Default.mergeOptions({
 
 const Filtros = ({ filtro, setFiltro }) => (
   <div className="filtros">
-    <button
-      onClick={() => setFiltro('todos')}
-      className={`filtro-btn ${filtro === 'todos' ? 'active' : ''}`}
-    >
+    <button onClick={() => setFiltro('todos')} className={`filtro-btn ${filtro === 'todos' ? 'active' : ''}`}>
       Todas las ofertas
     </button>
-    <button
-      onClick={() => setFiltro('mejores')}
-      className={`filtro-btn ${filtro === 'mejores' ? 'active' : ''}`}
-    >
+    <button onClick={() => setFiltro('mejores')} className={`filtro-btn ${filtro === 'mejores' ? 'active' : ''}`}>
       Mejores pagados
     </button>
-    <button
-      onClick={() => setFiltro('peores')}
-      className={`filtro-btn ${filtro === 'peores' ? 'active' : ''}`}
-    >
+    <button onClick={() => setFiltro('peores')} className={`filtro-btn ${filtro === 'peores' ? 'active' : ''}`}>
       Peores pagados
     </button>
   </div>
@@ -94,7 +85,6 @@ function App() {
 
   const fetchOfertas = async () => {
     if (!busqueda.trim()) {
-      console.warn('Por favor, ingresa un puesto de trabajo para buscar.');
       setError('Por favor, ingresa un puesto de trabajo para buscar.');
       return;
     }
@@ -110,20 +100,15 @@ function App() {
 
       const ofertasConCoords = ofertasBase.map((oferta) => {
         const coordenadas = geocodeLocationManual(oferta.ubicacion);
-        if (!coordenadas) {
-          console.warn(`No se encontraron coordenadas para la ubicación: ${oferta.ubicacion}`);
-        }
         return {
           ...oferta,
-          coordenadas: coordenadas || { lat: 19.4326, lng: -99.1332 }, // CDMX por defecto
+          coordenadas: coordenadas || { lat: 19.4326, lng: -99.1332 },
         };
       }).filter(oferta => oferta !== null);
 
       setOfertas(ofertasConCoords);
     } catch (err) {
-      console.error("Error al buscar las ofertas:", err);
       setError("No se pudieron cargar las ofertas. Asegúrate de que el servidor esté corriendo.");
-      setOfertas([]);
     } finally {
       setCargando(false);
     }
@@ -135,28 +120,16 @@ function App() {
     switch (filtro) {
       case 'mejores':
         resultados = resultados
-          .filter(item => {
-            const salarioNum = parseFloat(String(item.salario).replace(/[^0-9.]/g, ''));
-            return !isNaN(salarioNum);
-          })
-          .sort((a, b) => {
-            const salarioA = parseFloat(String(a.salario).replace(/[^0-9.]/g, ''));
-            const salarioB = parseFloat(String(b.salario).replace(/[^0-9.]/g, ''));
-            return salarioB - salarioA;
-          })
+          .filter(item => !isNaN(parseFloat(String(item.salario).replace(/[^0-9.]/g, ''))))
+          .sort((a, b) => parseFloat(String(b.salario).replace(/[^0-9.]/g, '')) -
+                          parseFloat(String(a.salario).replace(/[^0-9.]/g, '')))
           .slice(0, 10);
         break;
       case 'peores':
         resultados = resultados
-          .filter(item => {
-            const salarioNum = parseFloat(String(item.salario).replace(/[^0-9.]/g, ''));
-            return !isNaN(salarioNum);
-          })
-          .sort((a, b) => {
-            const salarioA = parseFloat(String(a.salario).replace(/[^0-9.]/g, ''));
-            const salarioB = parseFloat(String(b.salario).replace(/[^0-9.]/g, ''));
-            return salarioA - salarioB;
-          })
+          .filter(item => !isNaN(parseFloat(String(item.salario).replace(/[^0-9.]/g, ''))))
+          .sort((a, b) => parseFloat(String(a.salario).replace(/[^0-9.]/g, '')) -
+                          parseFloat(String(b.salario).replace(/[^0-9.]/g, '')))
           .slice(0, 10);
         break;
       default:
@@ -165,63 +138,16 @@ function App() {
     return resultados;
   };
 
-  const downloadPdf = (oferta) => {
-    const doc = new jsPDF();
-    doc.setFontSize(12);
-    let y = 10;
-    doc.text(`Título: ${oferta.titulo}`, 10, y); y += 10;
-    doc.text(`Empresa: ${oferta.empresa}`, 10, y); y += 10;
-    doc.text(`Ubicación: ${oferta.ubicacion}`, 10, y); y += 10;
-    doc.text(`Salario: ${oferta.salario}`, 10, y); y += 10;
-    if (oferta.publicado) { doc.text(`Fecha de publicación: ${oferta.publicado}`, 10, y); y += 10; }
-    doc.text(`Descripción:`, 10, y); y += 10;
-    const textLines = doc.splitTextToSize(oferta.descripcion || 'Sin descripción', 180);
-    doc.text(textLines, 10, y);
-    doc.save(`${(oferta.titulo || 'oferta').replace(/ /g, '_')}.pdf`);
-  };
-
   const handleSearchClick = () => fetchOfertas();
-
   const handleVerMapaTop10 = () => {
     setFiltro('mejores');
     setMostrarMapaTop10(true);
-  };
-
-  // —— Exportaciones mejoradas (CSV / JSON) ——
-  const exportCSV = () => {
-    if (!ofertas.length) return;
-    const headers = ['Titulo', 'Empresa', 'Ubicacion', 'Salario', 'Publicado'];
-    const rows = ofertas.map(o => [
-      o.titulo ?? '',
-      o.empresa ?? '',
-      o.ubicacion ?? '',
-      o.salario ?? '',
-      o.publicado ?? ''
-    ]);
-    const csv = [headers, ...rows]
-      .map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'ofertas.csv'; a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const exportJSON = () => {
-    if (!ofertas.length) return;
-    const blob = new Blob([JSON.stringify(ofertas, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'ofertas.json'; a.click();
-    URL.revokeObjectURL(url);
   };
 
   const resultadosRender = ofertasFiltradas();
 
   return (
     <div className="App">
-      {/* Header con degradado morado LR y buscador arriba */}
       <div className="header-gradient">
         <div className="header-inner">
           <h1 className="app-title">Sistema de Búsqueda de Empleos</h1>
@@ -234,23 +160,16 @@ function App() {
         </div>
       </div>
 
-      {/* Panel principal */}
       <div className="panel">
         <Filtros filtro={filtro} setFiltro={setFiltro} />
 
         <div className="toolbar">
-          <button
-            onClick={handleVerMapaTop10}
-            className="btn-primary"
-          >
+          <button onClick={handleVerMapaTop10} className="btn-primary">
             Ver mapa de los 10 mejores
           </button>
 
           {ofertas.length > 0 && (
-            <div className="export-bar">
-              <button className="btn-export csv" onClick={exportCSV}>Exportar CSV</button>
-              <button className="btn-export json" onClick={exportJSON}>Exportar JSON</button>
-            </div>
+            <BotonesExportar datos={ofertas} />
           )}
         </div>
 
@@ -268,15 +187,6 @@ function App() {
                 <p><strong>Empresa:</strong> {oferta.empresa}</p>
                 <p><strong>Ubicación:</strong> {oferta.ubicacion}</p>
                 <p className="salario"><strong>Salario:</strong> {oferta.salario}</p>
-                <div className="acciones">
-                  <button
-                    onClick={() => downloadPdf(oferta)}
-                    className="btn-export pdf"
-                  >
-                    Descargar PDF
-                  </button>
-                  {/* ✔️ Eliminado el botón "Ver en mapa" por oferta */}
-                </div>
               </div>
             ))}
           </div>
